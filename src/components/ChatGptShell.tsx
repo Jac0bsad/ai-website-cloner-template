@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import {
   type CSSProperties,
+  type ReactNode,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -80,8 +81,8 @@ const defaultUserMessage =
   "For UI testing, reply with exactly two short bullet points about streaming chat interfaces.";
 
 const defaultAssistantMessage = [
-  "Streaming chat UIs render messages incrementally as tokens arrive.",
-  "Good interfaces preserve scroll position and minimize layout shifts during streaming.",
+  "- Streaming chat UIs render messages incrementally as tokens arrive.",
+  "- Good interfaces preserve scroll position and minimize layout shifts during streaming.",
 ];
 
 const streamingReply = defaultAssistantMessage.join("\n");
@@ -98,6 +99,7 @@ export function ChatGptShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [activeRecentChat, setActiveRecentChat] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [hasConversation, setHasConversation] = useState(false);
   const [userMessage, setUserMessage] = useState(defaultUserMessage);
@@ -193,14 +195,16 @@ export function ChatGptShell() {
 
   const startNewChat = () => {
     closeMenus();
+    setActiveRecentChat(null);
     setPrompt("");
     setHasConversation(false);
     setIsStreaming(false);
     setAssistantText("");
   };
 
-  const openDemoConversation = () => {
+  const openDemoConversation = (chatTitle?: string) => {
     closeMenus();
+    setActiveRecentChat(chatTitle ?? null);
     setHasConversation(true);
     setUserMessage(defaultUserMessage);
     setAssistantText(streamingReply);
@@ -282,10 +286,15 @@ export function ChatGptShell() {
               <a
                 key={chat}
                 href="#"
-                className="chatgpt-recent-link"
+                className={
+                  activeRecentChat === chat
+                    ? "chatgpt-recent-link is-active"
+                    : "chatgpt-recent-link"
+                }
+                aria-current={activeRecentChat === chat ? "page" : undefined}
                 onClick={(event) => {
                   event.preventDefault();
-                  openDemoConversation();
+                  openDemoConversation(chat);
                 }}
               >
                 {chat}
@@ -326,9 +335,7 @@ export function ChatGptShell() {
                   <div className="chatgpt-thinking-dot" aria-label="ChatGPT is thinking" />
                 ) : (
                   <div className="chatgpt-assistant-block">
-                    {assistantText.split("\n").map((line) => (
-                      <p key={line || "streaming"}>{line}</p>
-                    ))}
+                    <MarkdownResponse markdown={assistantText} />
                     {isStreaming ? <span className="chatgpt-stream-cursor" /> : null}
                   </div>
                 )}
@@ -516,4 +523,202 @@ function MenuPanel({ items, className }: { items: ChatMenuItem[]; className: str
       ))}
     </div>
   );
+}
+
+type MarkdownInlineToken =
+  | {
+      kind: "text";
+      value: string;
+    }
+  | {
+      kind: "code";
+      value: string;
+    }
+  | {
+      kind: "strong";
+      value: string;
+    };
+
+type MarkdownBlock =
+  | {
+      kind: "paragraph";
+      text: string;
+    }
+  | {
+      kind: "unordered-list";
+      items: string[];
+    }
+  | {
+      kind: "ordered-list";
+      items: string[];
+    }
+  | {
+      kind: "code";
+      text: string;
+    };
+
+function MarkdownResponse({ markdown }: { markdown: string }) {
+  const blocks = parseMarkdown(markdown);
+
+  return (
+    <div className="chatgpt-assistant-markdown">
+      {blocks.map((block, index) => {
+        if (block.kind === "unordered-list") {
+          return (
+            <ul key={`ul-${index}`}>
+              {block.items.map((item, itemIndex) => (
+                <li key={`${item}-${itemIndex}`}>{renderInlineMarkdown(item)}</li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (block.kind === "ordered-list") {
+          return (
+            <ol key={`ol-${index}`}>
+              {block.items.map((item, itemIndex) => (
+                <li key={`${item}-${itemIndex}`}>{renderInlineMarkdown(item)}</li>
+              ))}
+            </ol>
+          );
+        }
+
+        if (block.kind === "code") {
+          return (
+            <pre key={`code-${index}`}>
+              <code>{block.text}</code>
+            </pre>
+          );
+        }
+
+        return <p key={`p-${index}`}>{renderInlineMarkdown(block.text)}</p>;
+      })}
+    </div>
+  );
+}
+
+function parseMarkdown(markdown: string): MarkdownBlock[] {
+  const blocks: MarkdownBlock[] = [];
+  const paragraphLines: string[] = [];
+  const lines = markdown.split("\n");
+  let listType: "unordered-list" | "ordered-list" | null = null;
+  let listItems: string[] = [];
+  let codeLines: string[] = [];
+  let inCodeBlock = false;
+
+  const flushParagraph = () => {
+    if (!paragraphLines.length) return;
+    blocks.push({ kind: "paragraph", text: paragraphLines.join(" ") });
+    paragraphLines.length = 0;
+  };
+
+  const flushList = () => {
+    if (!listType || !listItems.length) return;
+    blocks.push({ kind: listType, items: listItems });
+    listType = null;
+    listItems = [];
+  };
+
+  const flushCode = () => {
+    blocks.push({ kind: "code", text: codeLines.join("\n") });
+    codeLines = [];
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith("```")) {
+      flushParagraph();
+      flushList();
+
+      if (inCodeBlock) {
+        flushCode();
+      }
+
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeLines.push(line);
+      continue;
+    }
+
+    if (!trimmed) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    const unorderedMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    if (unorderedMatch) {
+      flushParagraph();
+      if (listType !== "unordered-list") flushList();
+      listType = "unordered-list";
+      listItems.push(unorderedMatch[1]);
+      continue;
+    }
+
+    const orderedMatch = trimmed.match(/^\d+[.)]\s+(.+)$/);
+    if (orderedMatch) {
+      flushParagraph();
+      if (listType !== "ordered-list") flushList();
+      listType = "ordered-list";
+      listItems.push(orderedMatch[1]);
+      continue;
+    }
+
+    flushList();
+    paragraphLines.push(trimmed);
+  }
+
+  if (inCodeBlock && codeLines.length) flushCode();
+  flushParagraph();
+  flushList();
+
+  return blocks;
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const tokens = tokenizeInlineMarkdown(text);
+
+  return tokens.map((token, index) => {
+    if (token.kind === "code") {
+      return <code key={`${token.value}-${index}`}>{token.value}</code>;
+    }
+
+    if (token.kind === "strong") {
+      return <strong key={`${token.value}-${index}`}>{token.value}</strong>;
+    }
+
+    return token.value;
+  });
+}
+
+function tokenizeInlineMarkdown(text: string): MarkdownInlineToken[] {
+  const tokens: MarkdownInlineToken[] = [];
+  const pattern = /(`[^`]+`|\*\*[^*]+\*\*)/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text))) {
+    if (match.index > cursor) {
+      tokens.push({ kind: "text", value: text.slice(cursor, match.index) });
+    }
+
+    const value = match[0];
+    if (value.startsWith("`")) {
+      tokens.push({ kind: "code", value: value.slice(1, -1) });
+    } else {
+      tokens.push({ kind: "strong", value: value.slice(2, -2) });
+    }
+
+    cursor = match.index + value.length;
+  }
+
+  if (cursor < text.length) {
+    tokens.push({ kind: "text", value: text.slice(cursor) });
+  }
+
+  return tokens;
 }

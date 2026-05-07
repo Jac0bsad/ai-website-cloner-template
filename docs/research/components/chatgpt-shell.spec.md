@@ -8,7 +8,7 @@
   - `docs/design-references/chatgpt-chat-model-menu.png`
   - `docs/design-references/chatgpt-chat-attach-menu.png`
 - **Interaction model:** click-driven sidebar, add-menu, and model-menu states
-- **Streaming model:** local simulated streaming with a thinking dot, stop button, incremental text reveal, and final response actions
+- **Streaming model:** local simulated streaming with a thinking dot, stop button, incremental markdown-rendered text reveal, and final response actions
 
 ## DOM Structure
 - Root full-viewport shell
@@ -28,7 +28,7 @@
   - conversation stack when a chat is active
     - top-right share/options controls
     - user bubble
-    - assistant response block or thinking dot
+    - assistant markdown response block or thinking dot
     - response action row
     - bottom composer dock
 
@@ -81,6 +81,7 @@
 - message font size: 16px
 - message line height: 24-28px
 - assistant action color: rgb(111, 111, 111)
+- assistant markdown: paragraphs render as normal text; markdown list syntax renders as real `ul`/`ol` markers instead of decorative pseudo-element bullets
 
 ## States & Behaviors
 
@@ -105,7 +106,7 @@
 - **State A:** prompt is visible in the composer and the send arrow is black
 - **State B:** user bubble appears at top of chat column, composer clears and docks to the bottom, send arrow changes to a stop square
 - **State C:** assistant side shows a black thinking dot
-- **State D:** assistant text appears incrementally with a small cursor
+- **State D:** assistant markdown appears incrementally with a small cursor
 - **State E:** stop button returns to voice button and response action icons appear
 
 ### Long prompt composer growth

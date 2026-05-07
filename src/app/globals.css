@@ -166,8 +166,7 @@
 
   .chatgpt-rail-button:hover,
   .chatgpt-icon-button:hover,
-  .chatgpt-sidebar-item:hover,
-  .chatgpt-recent-link:hover {
+  .chatgpt-sidebar-item:hover {
     background: #ececec;
   }
 
@@ -263,19 +262,48 @@
     display: flex;
     max-height: 100%;
     flex-direction: column;
+    gap: 1px;
     overflow: hidden;
   }
 
   .chatgpt-recent-link {
-    height: 36px;
+    display: block;
+    height: 35px;
     overflow: hidden;
     border-radius: 8px;
-    padding: 8px;
+    padding: 7px 8px;
     color: #0d0d0d;
     font-size: 14px;
     line-height: 20px;
+    outline: none;
     text-overflow: ellipsis;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
     white-space: nowrap;
+  }
+
+  .chatgpt-recent-link:hover {
+    background-color: #f0f0f0;
+  }
+
+  .chatgpt-recent-link:active {
+    background-color: #e2e2e2;
+  }
+
+  .chatgpt-recent-link:focus-visible {
+    background-color: #f0f0f0;
+    box-shadow: inset 0 0 0 2px #d9d9d9;
+  }
+
+  .chatgpt-recent-link.is-active,
+  .chatgpt-recent-link[aria-current="page"] {
+    background-color: #e9e9e9;
+  }
+
+  .chatgpt-recent-link.is-active:hover,
+  .chatgpt-recent-link[aria-current="page"]:hover {
+    background-color: #e4e4e4;
   }
 
   .chatgpt-account {
@@ -403,21 +431,63 @@
     line-height: 28px;
   }
 
-  .chatgpt-assistant-block p {
-    position: relative;
-    margin: 0 0 2px;
-    padding-left: 22px;
+  .chatgpt-assistant-markdown {
+    display: block;
   }
 
-  .chatgpt-assistant-block p::before {
-    position: absolute;
-    top: 12px;
-    left: 5px;
-    height: 4px;
-    width: 4px;
-    border-radius: 999px;
-    background: currentColor;
-    content: "";
+  .chatgpt-assistant-markdown > * {
+    margin-block: 0 12px;
+  }
+
+  .chatgpt-assistant-markdown > *:last-child {
+    margin-bottom: 0;
+  }
+
+  .chatgpt-assistant-markdown p {
+    margin-block: 0 12px;
+  }
+
+  .chatgpt-assistant-markdown ul,
+  .chatgpt-assistant-markdown ol {
+    padding-left: 24px;
+  }
+
+  .chatgpt-assistant-markdown ul {
+    list-style: disc;
+  }
+
+  .chatgpt-assistant-markdown ol {
+    list-style: decimal;
+  }
+
+  .chatgpt-assistant-markdown li {
+    padding-left: 2px;
+  }
+
+  .chatgpt-assistant-markdown li + li {
+    margin-top: 4px;
+  }
+
+  .chatgpt-assistant-markdown code {
+    border-radius: 5px;
+    background: #f4f4f4;
+    padding: 2px 4px;
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+  }
+
+  .chatgpt-assistant-markdown pre {
+    overflow-x: auto;
+    border-radius: 8px;
+    background: #f4f4f4;
+    padding: 12px 14px;
+    line-height: 22px;
+  }
+
+  .chatgpt-assistant-markdown pre code {
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
   }
 
   .chatgpt-thinking-dot {
