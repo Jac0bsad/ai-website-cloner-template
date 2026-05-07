@@ -90,6 +90,7 @@ const minPromptHeight = 24;
 const maxPromptHeight = 264;
 const minComposerHeight = 102;
 const composerChromeHeight = 78;
+const compactLayoutQuery = "(max-width: 720px)";
 
 export function ChatGptShell() {
   const shellRef = useRef<HTMLElement>(null);
@@ -209,6 +210,9 @@ export function ChatGptShell() {
     setUserMessage(defaultUserMessage);
     setAssistantText(streamingReply);
     setIsStreaming(false);
+    if (window.matchMedia(compactLayoutQuery).matches) {
+      setSidebarOpen(false);
+    }
   };
 
   const submitPrompt = () => {

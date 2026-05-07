@@ -145,5 +145,8 @@
 
 ## Responsive Behavior
 - Desktop: expanded sidebar pushes content; composer remains centered in remaining space.
-- Tablet/mobile: collapsed rail stays 52px. Expanded sidebar overlays above main content with fixed width.
-- Composer clamps to available width and keeps icon controls fixed-size.
+- Tablet: collapsed rail stays 52px until the compact breakpoint.
+- Narrow/mobile: the persistent left rail collapses into a top bar with menu and new-chat controls; main content no longer reserves left padding.
+- Narrow/mobile sidebar: expanded sidebar opens as an overlay drawer from the left edge, using most but not all of the viewport width and casting a soft right shadow.
+- Narrow/mobile recent selection: selecting a recent chat closes the drawer so the conversation is not covered.
+- Composer clamps to available width and keeps icon controls fixed-size; mobile composer uses near-full viewport width with small side gutters.
