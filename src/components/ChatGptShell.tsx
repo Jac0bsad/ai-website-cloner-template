@@ -78,11 +78,43 @@ const addMenuItems: ChatMenuItem[] = [
 ];
 
 const defaultUserMessage =
-  "For UI testing, reply with exactly two short bullet points about streaming chat interfaces.";
+  "Give me a markdown content to demonstrate how the md content is rendered.";
 
 const defaultAssistantMessage = [
-  "- Streaming chat UIs render messages incrementally as tokens arrive.",
-  "- Good interfaces preserve scroll position and minimize layout shifts during streaming.",
+  "# Markdown Rendering Demo",
+  "",
+  "## Text styles",
+  "**Bold text**, *italic text*, ~~strikethrough~~, and `inline code`.",
+  "",
+  "> This is a blockquote.",
+  "",
+  "---",
+  "",
+  "## Lists",
+  "- Apple",
+  "- Banana",
+  "- Cherry",
+  "",
+  "1. First step",
+  "2. Second step",
+  "3. Third step",
+  "",
+  "- [x] Write markdown",
+  "- [ ] Render preview",
+  "",
+  "## Link",
+  "[OpenAI](https://www.openai.com)",
+  "",
+  "## Code block",
+  "```ts",
+  "const greet = (name: string) => `Hello, ${name}`;",
+  "```",
+  "",
+  "## Table",
+  "| Name | Language | Experience |",
+  "| --- | --- | --- |",
+  "| Alice | Python | 5 years |",
+  "| Bob | TypeScript | 3 years |",
 ];
 
 const streamingReply = defaultAssistantMessage.join("\n");
@@ -541,6 +573,19 @@ type MarkdownInlineToken =
   | {
       kind: "strong";
       value: string;
+    }
+  | {
+      kind: "emphasis";
+      value: string;
+    }
+  | {
+      kind: "delete";
+      value: string;
+    }
+  | {
+      kind: "link";
+      href: string;
+      value: string;
     };
 
 type MarkdownBlock =
@@ -549,17 +594,40 @@ type MarkdownBlock =
       text: string;
     }
   | {
+      kind: "heading";
+      level: 1 | 2 | 3 | 4;
+      text: string;
+    }
+  | {
+      kind: "blockquote";
+      text: string;
+    }
+  | {
+      kind: "separator";
+    }
+  | {
       kind: "unordered-list";
-      items: string[];
+      items: MarkdownListItem[];
     }
   | {
       kind: "ordered-list";
-      items: string[];
+      items: MarkdownListItem[];
     }
   | {
       kind: "code";
+      language?: string;
       text: string;
+    }
+  | {
+      kind: "table";
+      headers: string[];
+      rows: string[][];
     };
+
+type MarkdownListItem = {
+  checked?: boolean;
+  text: string;
+};
 
 function MarkdownResponse({ markdown }: { markdown: string }) {
   const blocks = parseMarkdown(markdown);
@@ -567,11 +635,32 @@ function MarkdownResponse({ markdown }: { markdown: string }) {
   return (
     <div className="chatgpt-assistant-markdown">
       {blocks.map((block, index) => {
+        if (block.kind === "heading") {
+          const HeadingTag = `h${block.level}` as const;
+          return <HeadingTag key={`h-${index}`}>{renderInlineMarkdown(block.text)}</HeadingTag>;
+        }
+
+        if (block.kind === "blockquote") {
+          return <blockquote key={`quote-${index}`}>{renderInlineMarkdown(block.text)}</blockquote>;
+        }
+
+        if (block.kind === "separator") {
+          return <hr key={`hr-${index}`} />;
+        }
+
         if (block.kind === "unordered-list") {
           return (
             <ul key={`ul-${index}`}>
               {block.items.map((item, itemIndex) => (
-                <li key={`${item}-${itemIndex}`}>{renderInlineMarkdown(item)}</li>
+                <li
+                  key={`${item.text}-${itemIndex}`}
+                  className={item.checked !== undefined ? "task-list-item" : undefined}
+                >
+                  {item.checked !== undefined ? (
+                    <input checked={item.checked} disabled type="checkbox" />
+                  ) : null}
+                  <span>{renderInlineMarkdown(item.text)}</span>
+                </li>
               ))}
             </ul>
           );
@@ -581,7 +670,7 @@ function MarkdownResponse({ markdown }: { markdown: string }) {
           return (
             <ol key={`ol-${index}`}>
               {block.items.map((item, itemIndex) => (
-                <li key={`${item}-${itemIndex}`}>{renderInlineMarkdown(item)}</li>
+                <li key={`${item.text}-${itemIndex}`}>{renderInlineMarkdown(item.text)}</li>
               ))}
             </ol>
           );
@@ -590,8 +679,34 @@ function MarkdownResponse({ markdown }: { markdown: string }) {
         if (block.kind === "code") {
           return (
             <pre key={`code-${index}`}>
+              {block.language ? <span className="code-language">{block.language}</span> : null}
               <code>{block.text}</code>
             </pre>
+          );
+        }
+
+        if (block.kind === "table") {
+          return (
+            <div className="chatgpt-markdown-table-wrap" key={`table-${index}`}>
+              <table>
+                <thead>
+                  <tr>
+                    {block.headers.map((header) => (
+                      <th key={header}>{renderInlineMarkdown(header)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {block.rows.map((row, rowIndex) => (
+                    <tr key={`row-${rowIndex}`}>
+                      {row.map((cell, cellIndex) => (
+                        <td key={`${cell}-${cellIndex}`}>{renderInlineMarkdown(cell)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           );
         }
 
@@ -606,8 +721,9 @@ function parseMarkdown(markdown: string): MarkdownBlock[] {
   const paragraphLines: string[] = [];
   const lines = markdown.split("\n");
   let listType: "unordered-list" | "ordered-list" | null = null;
-  let listItems: string[] = [];
+  let listItems: MarkdownListItem[] = [];
   let codeLines: string[] = [];
+  let codeLanguage: string | undefined;
   let inCodeBlock = false;
 
   const flushParagraph = () => {
@@ -624,11 +740,37 @@ function parseMarkdown(markdown: string): MarkdownBlock[] {
   };
 
   const flushCode = () => {
-    blocks.push({ kind: "code", text: codeLines.join("\n") });
+    blocks.push({ kind: "code", language: codeLanguage, text: codeLines.join("\n") });
     codeLines = [];
+    codeLanguage = undefined;
   };
 
-  for (const line of lines) {
+  const parseTableCells = (line: string) =>
+    line
+      .trim()
+      .replace(/^\|/, "")
+      .replace(/\|$/, "")
+      .split("|")
+      .map((cell) => cell.trim());
+
+  const isTableSeparator = (line: string) =>
+    /^(\|\s*)?:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line.trim());
+
+  const readTable = (startIndex: number) => {
+    const headers = parseTableCells(lines[startIndex]);
+    const rows: string[][] = [];
+    let nextIndex = startIndex + 2;
+
+    while (nextIndex < lines.length && lines[nextIndex].includes("|") && lines[nextIndex].trim()) {
+      rows.push(parseTableCells(lines[nextIndex]));
+      nextIndex += 1;
+    }
+
+    return { block: { kind: "table", headers, rows } as MarkdownBlock, nextIndex };
+  };
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex];
     const trimmed = line.trim();
 
     if (trimmed.startsWith("```")) {
@@ -637,6 +779,8 @@ function parseMarkdown(markdown: string): MarkdownBlock[] {
 
       if (inCodeBlock) {
         flushCode();
+      } else {
+        codeLanguage = trimmed.slice(3).trim() || undefined;
       }
 
       inCodeBlock = !inCodeBlock;
@@ -648,9 +792,49 @@ function parseMarkdown(markdown: string): MarkdownBlock[] {
       continue;
     }
 
+    if (
+      lineIndex + 1 < lines.length &&
+      trimmed.includes("|") &&
+      isTableSeparator(lines[lineIndex + 1])
+    ) {
+      flushParagraph();
+      flushList();
+      const table = readTable(lineIndex);
+      blocks.push(table.block);
+      lineIndex = table.nextIndex - 1;
+      continue;
+    }
+
     if (!trimmed) {
       flushParagraph();
       flushList();
+      continue;
+    }
+
+    const headingMatch = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    if (headingMatch) {
+      flushParagraph();
+      flushList();
+      blocks.push({
+        kind: "heading",
+        level: headingMatch[1].length as 1 | 2 | 3 | 4,
+        text: headingMatch[2],
+      });
+      continue;
+    }
+
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      flushParagraph();
+      flushList();
+      blocks.push({ kind: "separator" });
+      continue;
+    }
+
+    const blockquoteMatch = trimmed.match(/^>\s?(.+)$/);
+    if (blockquoteMatch) {
+      flushParagraph();
+      flushList();
+      blocks.push({ kind: "blockquote", text: blockquoteMatch[1] });
       continue;
     }
 
@@ -659,7 +843,12 @@ function parseMarkdown(markdown: string): MarkdownBlock[] {
       flushParagraph();
       if (listType !== "unordered-list") flushList();
       listType = "unordered-list";
-      listItems.push(unorderedMatch[1]);
+      const taskMatch = unorderedMatch[1].match(/^\[(x|X|\s)]\s+(.+)$/);
+      listItems.push(
+        taskMatch
+          ? { checked: taskMatch[1].toLowerCase() === "x", text: taskMatch[2] }
+          : { text: unorderedMatch[1] },
+      );
       continue;
     }
 
@@ -668,7 +857,7 @@ function parseMarkdown(markdown: string): MarkdownBlock[] {
       flushParagraph();
       if (listType !== "ordered-list") flushList();
       listType = "ordered-list";
-      listItems.push(orderedMatch[1]);
+      listItems.push({ text: orderedMatch[1] });
       continue;
     }
 
@@ -695,13 +884,29 @@ function renderInlineMarkdown(text: string): ReactNode[] {
       return <strong key={`${token.value}-${index}`}>{token.value}</strong>;
     }
 
+    if (token.kind === "emphasis") {
+      return <em key={`${token.value}-${index}`}>{token.value}</em>;
+    }
+
+    if (token.kind === "delete") {
+      return <del key={`${token.value}-${index}`}>{token.value}</del>;
+    }
+
+    if (token.kind === "link") {
+      return (
+        <a href={token.href} key={`${token.href}-${index}`} rel="noreferrer" target="_blank">
+          {token.value}
+        </a>
+      );
+    }
+
     return token.value;
   });
 }
 
 function tokenizeInlineMarkdown(text: string): MarkdownInlineToken[] {
   const tokens: MarkdownInlineToken[] = [];
-  const pattern = /(`[^`]+`|\*\*[^*]+\*\*)/g;
+  const pattern = /(`[^`]+`|\*\*[^*]+\*\*|~~[^~]+~~|\*[^*\s][^*]*\*|\[[^\]]+]\([^)]+\))/g;
   let cursor = 0;
   let match: RegExpExecArray | null;
 
@@ -713,8 +918,19 @@ function tokenizeInlineMarkdown(text: string): MarkdownInlineToken[] {
     const value = match[0];
     if (value.startsWith("`")) {
       tokens.push({ kind: "code", value: value.slice(1, -1) });
-    } else {
+    } else if (value.startsWith("**")) {
       tokens.push({ kind: "strong", value: value.slice(2, -2) });
+    } else if (value.startsWith("~~")) {
+      tokens.push({ kind: "delete", value: value.slice(2, -2) });
+    } else if (value.startsWith("*")) {
+      tokens.push({ kind: "emphasis", value: value.slice(1, -1) });
+    } else {
+      const linkMatch = value.match(/^\[([^\]]+)]\(([^)]+)\)$/);
+      if (linkMatch) {
+        tokens.push({ kind: "link", value: linkMatch[1], href: linkMatch[2] });
+      } else {
+        tokens.push({ kind: "text", value });
+      }
     }
 
     cursor = match.index + value.length;

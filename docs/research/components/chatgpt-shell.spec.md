@@ -81,7 +81,7 @@
 - message font size: 16px
 - message line height: 24-28px
 - assistant action color: rgb(111, 111, 111)
-- assistant markdown: paragraphs render as normal text; markdown list syntax renders as real `ul`/`ol` markers instead of decorative pseudo-element bullets
+- assistant markdown: paragraphs render as normal text; headings, horizontal rules, blockquotes, inline emphasis/code/link styles, unordered/ordered/task lists, fenced code blocks, and tables render as semantic HTML instead of decorative pseudo-elements
 
 ## States & Behaviors
 
