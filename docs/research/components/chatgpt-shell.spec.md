@@ -114,8 +114,9 @@
 - **State B (medium input):** composer expands vertically, preserving the same rounded card and bottom action row
 - **State C (overflow input):** composer clamps at roughly 354px tall; textarea/contenteditable region scrolls internally with a thin gray scrollbar; bottom controls remain visible and fixed
 - **State D (empty input):** composer returns to the compact 58px pill, with plus on the left and model/mic/voice controls on the right
-- **Reverse transition:** deleting long content animates the composer and editor height back to the compact empty state instead of snapping
-- **Implementation approach:** hidden measurement layer calculates prompt height; React sets CSS variables for composer/editor heights; CSS grid swaps empty vs typed layout; `height` transitions use a 180ms cubic-bezier curve
+- **Growth transition:** typing or pasting content that increases the composer height snaps immediately with no height animation.
+- **Reverse transition:** deleting long content animates the composer and editor height back toward the compact empty state.
+- **Implementation approach:** hidden measurement layer calculates prompt height; React stores the previous composer height, marks each resize as growing or shrinking, and only applies the 180ms cubic-bezier height transition while shrinking.
 
 ## Assets
 - No raster page assets required.

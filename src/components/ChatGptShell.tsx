@@ -94,15 +94,20 @@ export function ChatGptShell() {
   const shellRef = useRef<HTMLElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const promptMeasureRef = useRef<HTMLDivElement>(null);
+  const composerHeightRef = useRef(58);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
-  const [hasConversation, setHasConversation] = useState(true);
+  const [hasConversation, setHasConversation] = useState(false);
   const [userMessage, setUserMessage] = useState(defaultUserMessage);
   const [assistantText, setAssistantText] = useState(streamingReply);
   const [isStreaming, setIsStreaming] = useState(false);
   const [promptHeight, setPromptHeight] = useState(minPromptHeight);
+  const [composerHeight, setComposerHeight] = useState(58);
+  const [composerResizeDirection, setComposerResizeDirection] = useState<
+    "growing" | "shrinking" | "unchanged"
+  >("unchanged");
 
   const closeMenus = () => {
     setAddMenuOpen(false);
@@ -111,13 +116,27 @@ export function ChatGptShell() {
 
   const resizePrompt = useCallback(() => {
     const measureElement = promptMeasureRef.current;
-    if (!measureElement || !prompt.trim()) {
-      setPromptHeight(minPromptHeight);
-      return;
-    }
+    const hasPromptText = Boolean(prompt.trim());
+    const nextPromptHeight =
+      measureElement && hasPromptText
+        ? Math.min(measureElement.scrollHeight, maxPromptHeight)
+        : minPromptHeight;
+    const nextComposerHeight =
+      !hasPromptText || nextPromptHeight <= minPromptHeight
+        ? 58
+        : Math.max(minComposerHeight, nextPromptHeight + composerChromeHeight);
+    const previousComposerHeight = composerHeightRef.current;
 
-    const nextHeight = Math.min(measureElement.scrollHeight, maxPromptHeight);
-    setPromptHeight(nextHeight);
+    composerHeightRef.current = nextComposerHeight;
+    setComposerResizeDirection(
+      nextComposerHeight > previousComposerHeight
+        ? "growing"
+        : nextComposerHeight < previousComposerHeight
+          ? "shrinking"
+          : "unchanged",
+    );
+    setPromptHeight(nextPromptHeight);
+    setComposerHeight(nextComposerHeight);
   }, [prompt]);
 
   useLayoutEffect(() => {
@@ -367,16 +386,17 @@ export function ChatGptShell() {
     streaming: boolean,
   ) {
     const hasPrompt = Boolean(prompt.trim());
+    const isCompact = !hasPrompt || promptHeight <= minPromptHeight;
     const composerStyle = {
-      "--composer-height": `${
-        hasPrompt ? Math.max(minComposerHeight, promptHeight + composerChromeHeight) : 58
-      }px`,
+      "--composer-height": `${composerHeight}px`,
       "--prompt-height": `${hasPrompt ? promptHeight : minPromptHeight}px`,
     } as CSSProperties;
+    const resizeClass =
+      composerResizeDirection === "shrinking" ? " is-shrinking" : " is-growing";
 
     return (
       <form
-        className={`${className}${hasPrompt ? "" : " is-empty"}`}
+        className={`${className}${hasPrompt ? "" : " is-empty"}${isCompact ? " is-compact" : ""}${resizeClass}`}
         style={composerStyle}
         onSubmit={(event) => {
           event.preventDefault();

@@ -530,10 +530,14 @@
     background: #fff;
     padding: 14px 9px 9px 20px;
     box-shadow: 0 18px 50px rgb(0 0 0 / 8%), 0 1px 2px rgb(0 0 0 / 12%);
+    transition: none;
+  }
+
+  .chatgpt-composer.is-shrinking {
     transition: height 180ms cubic-bezier(0.2, 0, 0, 1);
   }
 
-  .chatgpt-composer.is-empty {
+  .chatgpt-composer.is-compact {
     grid-template-columns: 38px minmax(0, 1fr) auto;
     grid-template-rows: 38px;
     align-items: center;
@@ -570,10 +574,14 @@
     padding: 0 10px 0 0;
     scrollbar-color: #d8d8d8 transparent;
     scrollbar-width: thin;
+    transition: none;
+  }
+
+  .chatgpt-composer.is-shrinking textarea {
     transition: height 180ms cubic-bezier(0.2, 0, 0, 1);
   }
 
-  .chatgpt-composer.is-empty textarea {
+  .chatgpt-composer.is-compact textarea {
     grid-column: 2;
     grid-row: 1;
     padding: 0;
@@ -618,7 +626,7 @@
     gap: 5px;
   }
 
-  .chatgpt-composer.is-empty .chatgpt-composer-actions {
+  .chatgpt-composer.is-compact .chatgpt-composer-actions {
     grid-row: 1;
   }
 
@@ -632,7 +640,7 @@
     grid-row: 2;
   }
 
-  .chatgpt-composer.is-empty .chatgpt-add-anchor {
+  .chatgpt-composer.is-compact .chatgpt-add-anchor {
     grid-row: 1;
   }
 
